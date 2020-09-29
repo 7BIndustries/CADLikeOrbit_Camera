@@ -13,6 +13,8 @@ export var InputMapActionZoom = "Zooming"
 export var InputMapActionPan = "Panning"
 export var RotateUsingZoomPlusPan = true
 export var InputMapActionRotate = "Rotating"
+export var InputMapActionZoomIn = "ZoomingIn"
+export var InputMapActionZoomOut = "ZoomingOut"
 
 signal CamZoom_start
 signal CamZoom_stop
@@ -21,7 +23,7 @@ signal CamPan_stop
 signal CamRotate_start
 signal CamRotate_stop
 
-enum CamAction {ZOOM, ROTATE, PAN}
+enum CamAction {ZOOMIN, ZOOMOUT, ZOOM, ROTATE, PAN}
 var act_pos2d = Vector2(0,0)
 var last_pos2d = Vector2(0,0)
 var actpandist = 0
@@ -51,7 +53,8 @@ func _ready():
 	CamAction.ROTATE = false
 	
 	#Check for InputMap Errors
-	if len(InputMap.get_action_list(InputMapActionZoom)) == 0 or \
+	if len(InputMap.get_action_list(InputMapActionZoomIn)) == 0 or \
+	   len(InputMap.get_action_list(InputMapActionZoomOut)) == 0 or \
 	   len(InputMap.get_action_list(InputMapActionPan)) == 0 or \
 	   (len(InputMap.get_action_list(InputMapActionRotate)) == 0 and not RotateUsingZoomPlusPan):
 			print(self.name + " Error: Can't find defined InputMap Actions!")
@@ -66,6 +69,13 @@ func Zooming():
 		var Zoomdist = (last_pos2d[1]-act_pos2d[1])*ZOOMSPEED
 		translate_object_local(Vector3(0,0,Zoomdist))
 
+"""
+Meant to be used with the mouse scroll wheel, zooms in or out one step for each
+step of the wheel.
+"""
+func ZoomingInOut(dir):
+	var Zoomdist = dir * ZOOMSPEED
+	translate_object_local(Vector3(0,0,Zoomdist))
 
 func Panning():
 
@@ -156,7 +166,17 @@ func _process(delta):
 	if Input.is_action_just_released(InputMapActionZoom):
 		emit_signal("CamZoom_stop")
 		CamAction.ZOOM = false
-
+		
+	# Zoom in (assumes mouse scroll wheel)
+	if Input.is_action_just_released("ZoomingIn"):
+		emit_signal("CamZoom_start")
+		CamAction.ZOOMIN = true
+		
+	# Zoom out (assumes mouse scroll wheel)
+	if Input.is_action_just_released("ZoomingOut"):
+		emit_signal("CamZoom_start")
+		CamAction.ZOOMOUT = true
+		
 	if Input.is_action_just_pressed(InputMapActionPan):
 		emit_signal("CamPan_start")
 		CamAction.PAN = true
@@ -220,6 +240,14 @@ func _process(delta):
 
 	if CamAction.ZOOM:
 		Zooming()
+	if CamAction.ZOOMIN:
+		ZoomingInOut(-1)
+		CamAction.ZOOMIN = false
+		emit_signal("CamZoom_stop")
+	if CamAction.ZOOMOUT:
+		ZoomingInOut(1)
+		CamAction.ZOOMOUT = false
+		emit_signal("CamZoom_stop")
 	if CamAction.PAN:
 		Panning()
 	if CamAction.ROTATE:
