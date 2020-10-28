@@ -67,6 +67,7 @@ func _ready():
 func Zooming():
 	if last_pos2d != Vector2(0,0):
 		var Zoomdist = (last_pos2d[1]-act_pos2d[1])*ZOOMSPEED
+
 		translate_object_local(Vector3(0,0,Zoomdist))
 
 """
@@ -75,6 +76,11 @@ step of the wheel.
 """
 func ZoomingInOut(dir):
 	var Zoomdist = dir * ZOOMSPEED
+
+	# Prevent the user from zooming past the origin
+	if self.transform.origin.y < 0:
+		Zoomdist = -self.transform.origin.y
+
 	translate_object_local(Vector3(0,0,Zoomdist))
 
 func Panning():
