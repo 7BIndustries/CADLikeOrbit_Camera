@@ -23,12 +23,16 @@ signal CamPan_stop
 signal CamRotate_start
 signal CamRotate_stop
 
-enum CamAction {ZOOMIN, ZOOMOUT, ZOOM, ROTATE, PAN}
+enum CamAction {ZOOMIN, ZOOMOUT, ZOOM, ROTATE, PAN, SELECT}
 var act_pos2d = Vector2(0,0)
 var last_pos2d = Vector2(0,0)
 var actpandist = 0
 var focalpoint = Vector3(0,0,0)
 
+# Enabled/disabled camera controls
+var zoom_enabled = true
+var pan_enabled = true
+var rotate_enabled = true
 
 func _ready():
 	
@@ -78,8 +82,8 @@ func ZoomingInOut(dir):
 	var Zoomdist = dir * ZOOMSPEED
 
 	# Prevent the user from zooming past the origin
-	if self.transform.origin.y < 0:
-		Zoomdist = -self.transform.origin.y
+#	if self.transform.origin.y < 0:
+#		Zoomdist = -self.transform.origin.y
 
 	translate_object_local(Vector3(0,0,Zoomdist))
 
@@ -160,10 +164,39 @@ func Rotating():
 					Transform.IDENTITY.rotated(Vector3(0,1,0), (last_pos2d[0]-act_pos2d[0])*ROTATIONSPEED) * \
 					Transform.IDENTITY.translated(VFocalP2Cam)
 
+"""
+Checks to see if the raycast is colliding with anything, meaning that it should be selected.
+"""
+func Selecting():
+	var from = project_ray_origin(act_pos2d)
+	var to = from + project_ray_normal(act_pos2d) * RAYLENGTH
+
+	$RayCast.origin = from
+	$RayCast.cast_to = to
+
+	$RayCast.force_raycast_update()
+	if $RayCast.is_colliding():
+		print("HERE")
+
+	# Orient RayCast
+#	var RayCastPose = global_transform.inverse()
+#	RayCastPose.origin = Vector3(0,0,0)
+#	$RayCast.transform = RayCastPose
+#	$RayCast.force_update_transform()
+
+	# Get 3d-Focalpoint for t-1
+#	var raynormal = project_ray_normal(act_pos2d)
+#	$RayCast.cast_to = raynormal * RAYLENGTH
+#	$RayCast.force_raycast_update()
+#	if $RayCast.is_colliding():
+#		focalpoint = $RayCast.get_collision_point()
+#		print("HERE")
+
+	# Is there a t-1 Action? No, then get Focalpoint
+#	if last_pos2d == Vector2(0,0):
 
 # warning-ignore:unused_argument
 func _process(delta):
-
 	#Match Input-Action to Camera-Operation
 	if Input.is_action_just_pressed(InputMapActionZoom):
 		emit_signal("CamZoom_start")
@@ -192,6 +225,12 @@ func _process(delta):
 			CamAction.PAN = false
 			if $FocalpointSphere.visible:
 				$FocalpointSphere.visible = false
+
+	# If the user is holding down the Control key, they want to select geometry
+	if Input.is_action_pressed("mouse_select"):
+		CamAction.SELECT = true
+	else:
+		CamAction.SELECT = false
 
 	#Rotate by using the Key-Combination of Zoom and Pan, or by using a 
 	#seperate InputMap-Event
@@ -244,19 +283,21 @@ func _process(delta):
 
 	act_pos2d = get_viewport().get_mouse_position()
 
-	if CamAction.ZOOM:
+	if CamAction.ZOOM and zoom_enabled:
 		Zooming()
-	if CamAction.ZOOMIN:
+	if CamAction.ZOOMIN and zoom_enabled:
 		ZoomingInOut(-1)
 		CamAction.ZOOMIN = false
 		emit_signal("CamZoom_stop")
-	if CamAction.ZOOMOUT:
+	if CamAction.ZOOMOUT and zoom_enabled:
 		ZoomingInOut(1)
 		CamAction.ZOOMOUT = false
 		emit_signal("CamZoom_stop")
-	if CamAction.PAN:
+	if CamAction.PAN and pan_enabled:
 		Panning()
-	if CamAction.ROTATE:
+	if CamAction.ROTATE and rotate_enabled:
 		Rotating()
+	if CamAction.SELECT:
+		Selecting()
 
 	last_pos2d = act_pos2d
